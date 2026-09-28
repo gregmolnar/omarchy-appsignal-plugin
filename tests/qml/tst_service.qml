@@ -22,18 +22,25 @@ TestCase {
   function processFor(parts) {
     for (var i = 0; i < ProcessRegistry.processes.length; i++) {
       var process = ProcessRegistry.processes[i]
-      var matches = true
-      for (var p = 0; p < parts.length; p++) {
-        if (process.command[p] !== parts[p]) matches = false
+      for (var start = 0; start <= process.command.length - parts.length; start++) {
+        var matches = true
+        for (var p = 0; p < parts.length; p++) {
+          if (process.command[start + p] !== parts[p]) matches = false
+        }
+        if (matches) return process
       }
-      if (matches) return process
     }
     return null
   }
 
+  function argumentAfter(process, name) {
+    var index = process.command.indexOf(name)
+    return index >= 0 ? process.command[index + 1] : undefined
+  }
+
   function test_refresh_fetches_apps_org_and_incidents() {
     service.refresh()
-    var apps = processFor(["appsignal-cli", "--output", "json", "apps", "list"])
+    var apps = processFor(["--output", "json", "apps", "list"])
     verify(apps !== null)
     apps.complete(0, JSON.stringify({ apps: [
       { id: "one", name: "API", environment: "production" },
@@ -44,22 +51,21 @@ TestCase {
     verify(user !== null)
     user.complete(0, '{"user":{"id":"user-1","name":"Ada","email":"ada@example.com"}}', "")
 
-    var org = processFor(["appsignal-cli", "--output", "json", "apps", "show-org"])
+    var org = processFor(["--output", "json", "apps", "show-org"])
     verify(org !== null)
     org.complete(0, '{"org":"acme","message":"ok"}', "")
 
-    var incidents = processFor(["appsignal-cli", "--output", "json", "incidents", "list"])
+    var incidents = processFor(["--output", "json", "incidents", "list"])
     verify(incidents !== null)
-    compare(incidents.command[5], "--app-id")
-    compare(incidents.command[6], "one")
+    compare(argumentAfter(incidents, "--app-id"), "one")
     incidents.complete(0, JSON.stringify({ incidents: [{
       __typename: "ExceptionIncident", id: "e1", number: 1,
       state: "OPEN", severity: "CRITICAL", count: 2,
       exceptionName: "Boom"
     }] }), "")
 
-    compare(incidents.command[6], "one")
-    compare(incidents.command[8], "WIP")
+    compare(argumentAfter(incidents, "--app-id"), "one")
+    compare(argumentAfter(incidents, "--state"), "WIP")
     incidents.complete(0, JSON.stringify({ incidents: [
       { __typename: "ExceptionIncident", id: "mine", number: 3,
         state: "WIP", severity: "LOW", count: 1,
@@ -69,16 +75,16 @@ TestCase {
         exceptionName: "Theirs", assignees: [{ id: "user-2", name: "Grace" }] }
     ] }), "")
 
-    compare(incidents.command[6], "two")
-    compare(incidents.command[8], "OPEN")
+    compare(argumentAfter(incidents, "--app-id"), "two")
+    compare(argumentAfter(incidents, "--state"), "OPEN")
     incidents.complete(0, JSON.stringify({ incidents: [{
       __typename: "PerformanceIncident", id: "p1", number: 2,
       state: "OPEN", severity: "HIGH", count: 1,
       actionNames: ["POST /jobs"]
     }] }), "")
 
-    compare(incidents.command[6], "two")
-    compare(incidents.command[8], "WIP")
+    compare(argumentAfter(incidents, "--app-id"), "two")
+    compare(argumentAfter(incidents, "--state"), "WIP")
     incidents.complete(0, '{"incidents":[]}', "")
 
     compare(service.refreshing, false)
@@ -108,10 +114,10 @@ TestCase {
 
     compare(service.updateState(item, "WIP"), "started")
     compare(service.actionRunning, true)
-    var action = processFor(["appsignal-cli", "--output", "json", "incidents", "update"])
+    var action = processFor(["--output", "json", "incidents", "update"])
     verify(action !== null)
-    compare(action.command.join(" "),
-      "appsignal-cli --output json incidents update --number 42 --app-id one --state WIP --assign-me")
+    compare(action.command.slice(3).join(" "),
+      "--output json incidents update --number 42 --app-id one --state WIP --assign-me")
 
     action.complete(0, '{"incident":{"number":42,"state":"WIP"}}', "")
     compare(service.actionRunning, false)
@@ -128,10 +134,10 @@ TestCase {
     service.incidents = [item]
 
     compare(service.assignMe(item), "started")
-    var action = processFor(["appsignal-cli", "--output", "json", "incidents", "update"])
+    var action = processFor(["--output", "json", "incidents", "update"])
     verify(action !== null)
-    compare(action.command.join(" "),
-      "appsignal-cli --output json incidents update --number 42 --app-id one --assign-me")
+    compare(action.command.slice(3).join(" "),
+      "--output json incidents update --number 42 --app-id one --assign-me")
 
     action.complete(0, '{"incident":{"number":42}}', "")
     compare(service.actionStatus, "Assigned incident #42 to you")
@@ -143,7 +149,7 @@ TestCase {
     service.incidents = [item]
 
     service.updateState(item, "CLOSED")
-    var action = processFor(["appsignal-cli", "--output", "json", "incidents", "update"])
+    var action = processFor(["--output", "json", "incidents", "update"])
     action.complete(1, "", "Permission denied")
 
     compare(service.actionRunning, false)
@@ -154,7 +160,7 @@ TestCase {
 
   function test_missing_cli_reports_installation_error() {
     service.refresh()
-    var apps = processFor(["appsignal-cli", "--output", "json", "apps", "list"])
+    var apps = processFor(["--output", "json", "apps", "list"])
     verify(apps !== null)
     apps.complete(127, "", "appsignal-cli: command not found")
     compare(service.refreshing, false)

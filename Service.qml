@@ -65,10 +65,14 @@ Item {
     return text.length > 180 ? text.substring(0, 177) + "…" : text
   }
 
-  function helperPath() {
-    var value = String(Qt.resolvedUrl("appsignal-current-user"))
+  function helperPath(name) {
+    var value = String(Qt.resolvedUrl(name))
     if (value.indexOf("file://") === 0) value = value.substring(7)
     return decodeURIComponent(value)
+  }
+
+  function cliCommand(args) {
+    return ["/usr/bin/env", "python3", helperPath("appsignal-cli-bounded")].concat(args)
   }
 
   function refreshIfStale() {
@@ -85,21 +89,21 @@ Item {
     _partialErrors = []
     _appsOutput = ""
     _appsError = ""
-    appsProcess.command = ["appsignal-cli", "--output", "json", "apps", "list"]
+    appsProcess.command = cliCommand(["--output", "json", "apps", "list"])
     appsProcess.running = true
   }
 
   function fetchCurrentUser() {
     _userOutput = ""
     _userError = ""
-    currentUserProcess.command = ["/usr/bin/env", "python3", helperPath()]
+    currentUserProcess.command = ["/usr/bin/env", "python3", helperPath("appsignal-current-user")]
     currentUserProcess.running = true
   }
 
   function fetchOrganization() {
     _orgOutput = ""
     _orgError = ""
-    organizationProcess.command = ["appsignal-cli", "--output", "json", "apps", "show-org"]
+    organizationProcess.command = cliCommand(["--output", "json", "apps", "show-org"])
     organizationProcess.running = true
   }
 
@@ -121,13 +125,13 @@ Item {
     _currentState = _fetchStates[_fetchStateIndex]
     _incidentsOutput = ""
     _incidentsError = ""
-    incidentsProcess.command = [
-      "appsignal-cli", "--output", "json", "incidents", "list",
+    incidentsProcess.command = cliCommand([
+      "--output", "json", "incidents", "list",
       "--app-id", String(_currentApp.id),
       "--state", _currentState,
       "--order", "LAST",
       "--limit", String(maxPerApp)
-    ]
+    ])
     incidentsProcess.running = true
   }
 
@@ -191,11 +195,11 @@ Item {
     actionStatusTimer.stop()
     actionRunning = true
 
-    var command = [
-      "appsignal-cli", "--output", "json", "incidents", "update",
+    var command = cliCommand([
+      "--output", "json", "incidents", "update",
       "--number", String(item.number),
       "--app-id", String(item.appId)
-    ]
+    ])
     if (kind === "assign") {
       command.push("--assign-me")
       actionStatus = "Assigning incident #" + item.number + " to you…"

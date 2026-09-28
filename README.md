@@ -111,7 +111,7 @@ appsignal-cli --output json incidents update --number <number> --app-id <id> --s
 appsignal-cli --output json incidents update --number <number> --app-id <id> --assign-me
 ```
 
-Application and incident data remain in the Quickshell process memory. The plugin does not write monitoring data or credentials to disk.
+Application and incident data remain in the Quickshell process memory. The plugin does not write monitoring data or credentials to disk. Every AppSignal CLI invocation runs through `appsignal-cli-bounded`, which stops it after 20 seconds and caps stdout at 1 MiB and stderr at 64 KiB before either stream reaches Quickshell's collectors.
 
 To identify which WIP incidents belong to you, `appsignal-current-user` reads
 the OAuth access token from the AppSignal CLI configuration and requests only

@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""Run appsignal-cli with bounded output and execution time."""
+
+import os
+import selectors
+import signal
+import subprocess
+import sys
+import time
+
+
+TIMEOUT_SECONDS = 20
+MAX_STDOUT_BYTES = 1024 * 1024
+MAX_STDERR_BYTES = 64 * 1024
+READ_CHUNK_BYTES = 64 * 1024
+
+
+def stop_process(process: subprocess.Popen[bytes]) -> None:
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    process.wait()
+
+
+def emit(data: bytearray, stream) -> None:
+    stream.buffer.write(data)
+    stream.buffer.flush()
+
+
+def main() -> int:
+    try:
+        process = subprocess.Popen(
+            ["appsignal-cli", *sys.argv[1:]],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+    except FileNotFoundError:
+        print("appsignal-cli: command not found", file=sys.stderr)
+        return 127
+    except OSError:
+        print("Could not start appsignal-cli", file=sys.stderr)
+        return 126
+
+    stdout = bytearray()
+    stderr = bytearray()
+    streams = {
+        process.stdout: (stdout, MAX_STDOUT_BYTES, "stdout"),
+        process.stderr: (stderr, MAX_STDERR_BYTES, "stderr"),
+    }
+    selector = selectors.DefaultSelector()
+    for stream in streams:
+        selector.register(stream, selectors.EVENT_READ)
+
+    deadline = time.monotonic() + TIMEOUT_SECONDS
+    failure = ""
+    while selector.get_map():
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            failure = "AppSignal CLI request timed out"
+            break
+
+        events = selector.select(remaining)
+        if not events:
+            failure = "AppSignal CLI request timed out"
+            break
+
+        for key, _ in events:
+            stream = key.fileobj
+            target, limit, label = streams[stream]
+            chunk = os.read(stream.fileno(), READ_CHUNK_BYTES)
+            if not chunk:
+                selector.unregister(stream)
+                stream.close()
+                continue
+            available = limit - len(target)
+            target.extend(chunk[:available])
+            if len(chunk) > available:
+                failure = "AppSignal CLI %s exceeded the size limit" % label
+                break
+        if failure:
+            break
+
+    selector.close()
+    if failure:
+        stop_process(process)
+        if stderr and not stderr.endswith(b"\n"):
+            stderr.extend(b"\n")
+        message = failure.encode()
+        stderr.extend(message[:max(0, MAX_STDERR_BYTES - len(stderr))])
+        if len(stderr) < MAX_STDERR_BYTES:
+            stderr.extend(b"\n")
+        emit(stdout, sys.stdout)
+        emit(stderr, sys.stderr)
+        return 124 if "timed out" in failure else 1
+
+    try:
+        return_code = process.wait(timeout=max(0, deadline - time.monotonic()))
+    except subprocess.TimeoutExpired:
+        stop_process(process)
+        print("AppSignal CLI request timed out", file=sys.stderr)
+        return 124
+
+    emit(stdout, sys.stdout)
+    emit(stderr, sys.stderr)
+    return return_code if return_code >= 0 else 128 - return_code
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
