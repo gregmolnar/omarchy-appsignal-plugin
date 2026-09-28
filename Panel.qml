@@ -344,6 +344,7 @@ Panel {
               Text {
                 width: parent.width
                 text: root.heroStatus.toUpperCase()
+                textFormat: Text.PlainText
                 color: service.lastError !== "" || service.criticalCount > 0 ? root.urgent : root.dim
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -507,6 +508,7 @@ Panel {
                       Text {
                         Layout.fillWidth: true
                         text: incidentRow.modelData.title
+                        textFormat: Text.PlainText
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.body
@@ -517,6 +519,7 @@ Panel {
                         visible: incidentRow.modelData.detail !== "" && incidentRow.modelData.detail !== incidentRow.modelData.title
                         Layout.fillWidth: true
                         text: incidentRow.modelData.detail
+                        textFormat: Text.PlainText
                         color: root.dim
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.bodySmall
@@ -527,6 +530,7 @@ Panel {
                       Text {
                         Layout.fillWidth: true
                         text: Model.incidentMeta(incidentRow.modelData, root.nowMs, root.appFilter === "")
+                        textFormat: Text.PlainText
                         color: root.dim
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -580,6 +584,7 @@ Panel {
                         text: Model.incidentBadge(
                           incidentRow.modelData,
                           service.currentUser ? service.currentUser.id : "")
+                        textFormat: Text.PlainText
                         color: Color.popups.background
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
