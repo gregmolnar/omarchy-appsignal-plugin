@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "appsignal.status",
+  "id": "gregmolnar.appsignal",
   "name": "AppSignal",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "author": "Greg Molnar",
   "license": "MIT",
   "description": "Open incidents and assigned work-in-progress from AppSignal.",

@@ -28,10 +28,9 @@ An *unofficial* Omarchy bar plugin for monitoring open AppSignal incidents acros
 - [AppSignal CLI](https://github.com/appsignal/appsignal-cli).
 - An authenticated AppSignal CLI session.
 
-Install and authenticate the CLI:
+Install the CLI by following the [official AppSignal CLI installation instructions](https://github.com/appsignal/appsignal-cli#installation), then authenticate it:
 
 ```bash
-curl -sSL https://github.com/appsignal/appsignal-cli/releases/latest/download/install.sh | sudo sh
 appsignal-cli auth login
 appsignal-cli apps list
 ```
@@ -41,7 +40,7 @@ appsignal-cli apps list
 From a remote Git repository:
 
 ```bash
-omarchy plugin add https://github.com/YOUR-ACCOUNT/omarchy-appsignal-plugin.git --enable
+omarchy plugin add https://github.com/gregmolnar/omarchy-appsignal-plugin.git --enable
 ```
 
 From this checkout:
@@ -50,7 +49,13 @@ From this checkout:
 omarchy plugin add ~/git/omarchy-appsignal-plugin --enable
 ```
 
-The plugin ID is `appsignal.status`, and its default bar section is the right side.
+The plugin ID is `gregmolnar.appsignal`, and its default bar section is the right side.
+
+## Removal
+
+```bash
+omarchy plugin remove gregmolnar.appsignal
+```
 
 ## Usage
 
@@ -69,17 +74,17 @@ Limit monitored applications with the plugin's comma-separated `appIds` setting.
 ## IPC
 
 ```bash
-omarchy-shell appsignal.status status
-omarchy-shell appsignal.status apps
-omarchy-shell appsignal.status incidents
-omarchy-shell appsignal.status refresh
-omarchy-shell appsignal.status selectApp '<app-id>'
-omarchy-shell appsignal.status markWip '<app-id>' <incident-number>
-omarchy-shell appsignal.status closeIncident '<app-id>' <incident-number>
-omarchy-shell appsignal.status assignMe '<app-id>' <incident-number>
-omarchy-shell appsignal.status open
-omarchy-shell appsignal.status close
-omarchy-shell appsignal.status toggle
+omarchy-shell gregmolnar.appsignal status
+omarchy-shell gregmolnar.appsignal apps
+omarchy-shell gregmolnar.appsignal incidents
+omarchy-shell gregmolnar.appsignal refresh
+omarchy-shell gregmolnar.appsignal selectApp '<app-id>'
+omarchy-shell gregmolnar.appsignal markWip '<app-id>' <incident-number>
+omarchy-shell gregmolnar.appsignal closeIncident '<app-id>' <incident-number>
+omarchy-shell gregmolnar.appsignal assignMe '<app-id>' <incident-number>
+omarchy-shell gregmolnar.appsignal open
+omarchy-shell gregmolnar.appsignal close
+omarchy-shell gregmolnar.appsignal toggle
 ```
 
 `status`, `apps`, and `incidents` return JSON.

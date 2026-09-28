@@ -9,8 +9,8 @@ import "Model.js" as Model
 
 Panel {
   id: root
-  moduleName: "appsignal.status"
-  ipcTarget: "appsignal.status"
+  moduleName: "gregmolnar.appsignal"
+  ipcTarget: "gregmolnar.appsignal"
   manageIpc: false
 
   property int selectedIndex: 0
