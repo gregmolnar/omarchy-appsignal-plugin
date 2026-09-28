@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "id": "appsignal.status",
+  "name": "AppSignal",
+  "version": "0.3.2",
+  "author": "Greg Molnar",
+  "license": "MIT",
+  "description": "Open incidents and assigned work-in-progress from AppSignal.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "AppSignal",
+    "description": "Open incidents, your assigned WIP incidents, and quick triage across AppSignal applications.",
+    "category": "System",
+    "aliases": ["appsignal", "apm", "incidents", "monitoring"],
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshIntervalSec": 300,
+      "maxApps": 10,
+      "maxPerApp": 10,
+      "appIds": ""
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 60,
+        "max": 3600,
+        "step": 60,
+        "defaultValue": 300
+      },
+      {
+        "key": "maxApps",
+        "type": "integer",
+        "label": "Maximum applications",
+        "min": 1,
+        "max": 50,
+        "step": 1,
+        "defaultValue": 10
+      },
+      {
+        "key": "maxPerApp",
+        "type": "integer",
+        "label": "Incidents per application",
+        "min": 5,
+        "max": 50,
+        "step": 5,
+        "defaultValue": 10
+      },
+      {
+        "key": "appIds",
+        "type": "string",
+        "label": "Application IDs (comma-separated, blank for all)",
+        "defaultValue": ""
+      }
+    ]
+  }
+}

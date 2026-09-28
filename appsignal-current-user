@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+"""Print the AppSignal user authenticated by appsignal-cli as JSON."""
+
+import json
+import os
+import sys
+import tomllib
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+
+def fail(message: str) -> None:
+    print(message, file=sys.stderr)
+    raise SystemExit(1)
+
+
+def config_path() -> Path:
+    config_home = os.environ.get("XDG_CONFIG_HOME")
+    if config_home:
+        return Path(config_home) / "appsignal" / "config.toml"
+    return Path.home() / ".config" / "appsignal" / "config.toml"
+
+
+def main() -> None:
+    path = config_path()
+    try:
+        config = tomllib.loads(path.read_text())
+    except FileNotFoundError:
+        fail("AppSignal CLI configuration was not found")
+    except (OSError, tomllib.TOMLDecodeError):
+        fail("Could not read AppSignal CLI configuration")
+
+    oauth = config.get("oauth") or {}
+    token = str(oauth.get("access_token") or "")
+    if not token:
+        fail("AppSignal CLI is not authenticated with OAuth")
+
+    endpoint = str(config.get("endpoint") or "https://appsignal.com").rstrip("/")
+    body = json.dumps({
+        "query": "query CurrentUser { viewer { id name email } }"
+    }).encode()
+    request = urllib.request.Request(
+        endpoint + "/graphql",
+        data=body,
+        headers={
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json",
+            "User-Agent": "omarchy-appsignal-plugin/0.3.0",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            payload = json.load(response)
+    except urllib.error.HTTPError as error:
+        fail("AppSignal rejected the current-user request (HTTP %d)" % error.code)
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+        fail("Could not fetch the authenticated AppSignal user")
+
+    errors = payload.get("errors") or []
+    if errors:
+        fail(str(errors[0].get("message") or "AppSignal current-user request failed"))
+    user = (payload.get("data") or {}).get("viewer")
+    if not user or not user.get("id"):
+        fail("AppSignal did not return the authenticated user")
+
+    print(json.dumps({"user": {
+        "id": str(user["id"]),
+        "name": str(user.get("name") or ""),
+        "email": str(user.get("email") or ""),
+    }}))
+
+
+if __name__ == "__main__":
+    main()
