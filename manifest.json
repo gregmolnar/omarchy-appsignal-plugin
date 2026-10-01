@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "gregmolnar.appsignal",
   "name": "AppSignal",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "author": "Greg Molnar",
   "license": "MIT",
   "description": "Open incidents and assigned work-in-progress from AppSignal.",
@@ -23,6 +23,7 @@
       "refreshIntervalSec": 300,
       "maxApps": 10,
       "maxPerApp": 10,
+      "notificationsEnabled": true,
       "appIds": ""
     },
     "schema": [
@@ -52,6 +53,13 @@
         "max": 50,
         "step": 5,
         "defaultValue": 10
+      },
+      {
+        "key": "notificationsEnabled",
+        "type": "boolean",
+        "label": "Incident notifications",
+        "description": "Notify for newly seen incidents and critical escalations after the initial refresh.",
+        "defaultValue": true
       },
       {
         "key": "appIds",

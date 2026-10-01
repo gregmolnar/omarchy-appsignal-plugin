@@ -17,6 +17,7 @@ An *unofficial* Omarchy bar plugin for monitoring open AppSignal incidents acros
   the authenticated user.
 - Confirms destructive close actions in the panel.
 - Polls periodically and refreshes on right-click or middle-click.
+- Sends optional desktop notifications for newly seen incidents and critical escalations after the initial refresh, aggregating large bursts.
 - Exposes status, applications, incidents, filtering, refresh, and triage
   actions through Omarchy Shell IPC.
 - Reuses the CLI's OAuth credential store and never prints, copies, or persists
@@ -69,7 +70,7 @@ omarchy plugin remove gregmolnar.appsignal
 - Assigned WIP incidents remain in the panel until you close them.
 - Closing an incident requires confirmation.
 
-Limit monitored applications with the plugin's comma-separated `appIds` setting. Leaving it blank monitors all discovered applications up to `maxApps`.
+Limit monitored applications with the plugin's comma-separated `appIds` setting. Leaving it blank monitors all discovered applications up to `maxApps`. Incident notifications can be disabled with the `notificationsEnabled` setting.
 
 ## IPC
 
@@ -112,6 +113,8 @@ appsignal-cli --output json incidents update --number <number> --app-id <id> --a
 ```
 
 Application and incident data remain in the Quickshell process memory. The plugin does not write monitoring data or credentials to disk. Every AppSignal CLI invocation runs through `appsignal-cli-bounded`, which stops it after 20 seconds and caps stdout at 1 MiB and stderr at 64 KiB before either stream reaches Quickshell's collectors.
+
+Desktop alerts are sent through Omarchy's built-in `omarchy-notification-send` command. Provider-controlled notification text is length-limited and escaped before being passed as a discrete argument. Notification delivery is capped at five seconds, the first successful refresh establishes a silent baseline, and bursts of more than five new or newly critical incidents produce one aggregate alert.
 
 To identify which WIP incidents belong to you, `appsignal-current-user` reads
 the OAuth access token from the AppSignal CLI configuration and requests only

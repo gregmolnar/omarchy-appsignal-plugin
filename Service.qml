@@ -24,6 +24,7 @@ Item {
   readonly property int refreshIntervalSec: intSetting("refreshIntervalSec", 300, 60, 3600)
   readonly property int maxApps: intSetting("maxApps", 10, 1, 50)
   readonly property int maxPerApp: intSetting("maxPerApp", 10, 5, 50)
+  readonly property bool notificationsEnabled: boolSetting("notificationsEnabled", true)
   readonly property string appIds: String(setting("appIds", ""))
   readonly property int appCount: apps.length
 
@@ -48,6 +49,10 @@ Item {
   property string _actionValue: ""
   property string _actionOutput: ""
   property string _actionError: ""
+  property bool _incidentFetchFailed: false
+  property bool _notificationBaselineReady: false
+  property var _incidentSnapshot: ({})
+  property var _notificationQueue: []
 
   function setting(name, fallback) {
     var value = settings ? settings[name] : undefined
@@ -58,6 +63,12 @@ Item {
     var value = parseInt(String(setting(name, fallback)), 10)
     if (!isFinite(value)) value = fallback
     return Math.max(minimum, Math.min(maximum, value))
+  }
+
+  function boolSetting(name, fallback) {
+    var value = setting(name, fallback)
+    if (typeof value === "boolean") return value
+    return String(value).toLowerCase() !== "false"
   }
 
   function conciseError(value, fallback) {
@@ -73,6 +84,81 @@ Item {
 
   function cliCommand(args) {
     return ["/usr/bin/env", "python3", helperPath("appsignal-cli-bounded")].concat(args)
+  }
+
+  function incidentKey(item) {
+    return String(item.appId || "") + ":" + String(item.id || "")
+  }
+
+  function notificationText(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+  }
+
+  function queueDesktopNotification(headline, description, critical) {
+    _notificationQueue.push([
+      "/usr/bin/timeout", "--kill-after=1s", "5s",
+      "omarchy-notification-send",
+      "--app-name", "AppSignal",
+      "--urgency", critical ? "critical" : "normal",
+      "--expire-time", "10000",
+      headline, notificationText(description)
+    ])
+    runNextNotification()
+  }
+
+  function queueIncidentNotification(item, escalated) {
+    var critical = item.severity === "CRITICAL"
+    var headline = escalated ? "AppSignal incident became critical"
+      : critical ? "New critical AppSignal incident" : "New AppSignal incident"
+    var description = conciseError(
+      String(item.appLabel || "AppSignal") + " · #" + item.number + " · " + String(item.title || "Incident"),
+      "Open AppSignal incident")
+    queueDesktopNotification(headline, description, critical)
+  }
+
+  function runNextNotification() {
+    if (notificationProcess.running || _notificationQueue.length === 0) return
+    notificationProcess.command = _notificationQueue.shift()
+    notificationProcess.running = true
+  }
+
+  function updateIncidentNotifications(items) {
+    var next = ({})
+    var notifications = []
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i]
+      var key = incidentKey(item)
+      next[key] = { state: String(item.state || ""), severity: String(item.severity || "") }
+      if (!_notificationBaselineReady) continue
+      var previous = _incidentSnapshot[key]
+      var escalated = previous !== undefined
+        && item.severity === "CRITICAL"
+        && previous.severity !== "CRITICAL"
+      if (previous === undefined || escalated) notifications.push({ item: item, escalated: escalated })
+    }
+    _incidentSnapshot = next
+    if (!_notificationBaselineReady) {
+      _notificationBaselineReady = true
+      return
+    }
+    if (!notificationsEnabled) return
+    if (notifications.length > 5) {
+      var criticalCount = 0
+      for (var c = 0; c < notifications.length; c++) {
+        if (notifications[c].item.severity === "CRITICAL") criticalCount++
+      }
+      queueDesktopNotification(
+        notifications.length + " new AppSignal incidents",
+        criticalCount > 0 ? criticalCount + " critical incidents need attention" : "Open the AppSignal panel to review them",
+        criticalCount > 0)
+      return
+    }
+    for (var n = 0; n < notifications.length; n++) {
+      queueIncidentNotification(notifications[n].item, notifications[n].escalated)
+    }
   }
 
   function refreshIfStale() {
@@ -111,6 +197,7 @@ Item {
     _fetchApps = nextApps
     _fetchStates = currentUser && currentUser.id ? ["OPEN", "WIP"] : ["OPEN"]
     _fetchedIncidents = []
+    _incidentFetchFailed = false
     _fetchIndex = 0
     _fetchStateIndex = 0
     fetchNextAppState()
@@ -160,6 +247,7 @@ Item {
 
   function finishRefresh() {
     incidents = Model.sortIncidents(_fetchedIncidents)
+    if (!_incidentFetchFailed) updateIncidentNotifications(incidents)
     updateCounts()
     refreshing = false
     lastUpdated = new Date()
@@ -368,8 +456,12 @@ Item {
           var fetched = parsed.incidents
           if (root._currentState === "WIP") fetched = Model.filterAssignedTo(fetched, root.currentUser.id)
           root._fetchedIncidents = root._fetchedIncidents.concat(fetched)
-        } else root._partialErrors.push(app.label + " " + root._currentState + ": " + parsed.error)
+        } else {
+          root._incidentFetchFailed = true
+          root._partialErrors.push(app.label + " " + root._currentState + ": " + parsed.error)
+        }
       } else {
+        root._incidentFetchFailed = true
         root._partialErrors.push(app.label + " " + root._currentState + ": " + root.conciseError(stderr || stdout, "request failed"))
       }
       root.advanceIncidentFetch()
@@ -388,5 +480,12 @@ Item {
         String(actionStdout.text || root._actionOutput || ""),
         String(actionStderr.text || root._actionError || ""))
     }
+  }
+
+  Process {
+    id: notificationProcess
+    running: false
+    command: []
+    onExited: root.runNextNotification()
   }
 }

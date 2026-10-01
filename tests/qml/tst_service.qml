@@ -101,9 +101,38 @@ TestCase {
   function incident() {
     return {
       id: "e1", number: 42, appId: "one", appLabel: "API · production",
-      state: "OPEN", severity: "CRITICAL", timestampMs: 1,
+      title: "Boom", state: "OPEN", severity: "CRITICAL", timestampMs: 1,
       assignees: [], assigneeIds: []
     }
+  }
+
+  function test_notifications_skip_initial_results_and_report_new_incidents() {
+    var existing = incident()
+    service.updateIncidentNotifications([existing])
+    compare(processFor(["omarchy-notification-send"]), null)
+
+    var fresh = incident()
+    fresh.id = "e2"
+    fresh.number = 43
+    fresh.title = "<img src=https://example.com/tracker>"
+    service.updateIncidentNotifications([existing, fresh])
+
+    var notification = processFor(["omarchy-notification-send"])
+    verify(notification !== null)
+    compare(notification.command[0], "/usr/bin/timeout")
+    compare(argumentAfter(notification, "--urgency"), "critical")
+    verify(notification.command[notification.command.length - 1].indexOf("&lt;img") !== -1)
+    verify(notification.command[notification.command.length - 1].indexOf("<img") === -1)
+  }
+
+  function test_notifications_can_be_disabled() {
+    service.settings = { notificationsEnabled: false }
+    var existing = incident()
+    service.updateIncidentNotifications([existing])
+    var fresh = incident()
+    fresh.id = "e2"
+    service.updateIncidentNotifications([existing, fresh])
+    compare(processFor(["omarchy-notification-send"]), null)
   }
 
   function test_wip_action_assigns_me_and_keeps_item_after_success() {
